@@ -373,7 +373,7 @@ class param:
 
 
     # x and y in regression completely different from x and y in particle filters
-    def weighted_regression(self, y, full_swing, alpha=0.5, gamma=2, min_memory=500):
+    def weighted_regression(self, y, full_swing, index, gamma=2, min_memory=500):
 
         """Function to perform regression"""
 
@@ -454,30 +454,31 @@ class param:
 
 
         # calculate memory length, depending on the observed drift
-        self.memlen = gamma * math.sqrt( varbeta0 / (beta1*beta1 + varbeta1) )
+        self.memlen = gamma *  math.sqrt(varbeta0) / ( abs(beta1) + math.sqrt(varbeta1) )
 
         # Set new weight.  For testing, use uniform weights (1.0 / iteration)
         # Make sure that memory doesn't exceed previous memory
         if full_swing:
-            self.estimate = beta0 + self.Sums.Swwx*beta1
-            self.eta = min(1.0 / min_memory, max(1.0 / self.memlen, self.eta / (1.0 + self.eta)))
+            self.eta = min( index**-0.5 , max(1.0 / self.memlen, index**-1))
         else:
             # wait for min_mem worth of sufficient statistics before relying on regression
             self.eta = self.eta / (1.0 + self.eta)
 
 
-    def update_est_ioem(self, i, forth, min_mem, sweep_indx, ioem_alpha, ioem_gam):
+    def update_est_ioem(self, i, forth, min_mem, sweep_indx, ioem_gam):
 
 
         if i>=forth+1+min_mem or sweep_indx>1:
             # full-swing updates
             thetaupdate = (1.0/self.eta) * self.bar + (1 - 1.0/self.eta) * self.old_bar
-            self.weighted_regression(thetaupdate, True, alpha=ioem_alpha, \
+            self.weighted_regression(thetaupdate, True, index=i, \
              gamma=ioem_gam, min_memory=min_mem)
+            
+            self.estimate = self.bar    # parameter estimates are updated as in OEM, but with gamma (here eta) set through weighted regression
 
         else:
             # frozen parameter
-            self.weighted_regression(self.bar, False, alpha=ioem_alpha, \
+            self.weighted_regression(self.bar, False, index=i, \
              gamma=ioem_gam, min_memory=min_mem)
 
 
@@ -831,48 +832,48 @@ class params:
             self.sigw.estimate = self.sigw.bar
 
 
-    def update_ests_ioem(self, model, i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam):
+    def update_ests_ioem(self, model, i, lag, min_mem, sweep_indx, ioem_gam):
 
         if model=="coin":
             # maybe add parameter constraints here?
-            self.ff.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.uf.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.ft.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.ut.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.ff.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.uf.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.ft.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.ut.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="AR1":
-            self.a.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigw.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigv.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.a.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigw.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigv.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="sAR1":
-            self.sigv.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.sigv.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="sar":
-            self.sigv2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.sigv2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="sv":
-            self.phi.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sig.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.b.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.phi.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sig.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.b.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="two_ar":
-            self.a1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigw1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigv1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.a2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigw2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigv2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.a1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigw1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigv1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.a2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigw2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigv2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="two_ar_shared_sigv":
-            self.a1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigw1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.a2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigw2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
-            self.sigv.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.a1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigw1.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.a2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigw2.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
+            self.sigv.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
         if model=="ar_sigw":
-            self.sigw.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+            self.sigw.update_est_ioem(i, lag, min_mem, sweep_indx, ioem_gam)
 
 
 class Sums:
@@ -1526,8 +1527,8 @@ class records:
 ### smc functions
 
 
-def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=1, batch_size=500, oem_exponent=.75, \
- ioem_alpha=.5, ioem_gam=1, sweep_indx = 1, min_mem = 500, non_homogeneous_hmm=False):
+def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=21, batch_size=500, oem_exponent=.75, \
+       ioem_gam = 1, sweep_indx = 1, min_mem = 500):
 #high level function: performs particle filtering
 
     ### initialize everything ###
@@ -1538,37 +1539,15 @@ def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=1, batch_s
     record = records(model, em_method)
     particles = particles_class(model, N, par, obs[0])
 
-    ####print statements trying to debug run 79 where sum of particle weights is zero
-    #print "first particle state", particles.parts[0].state
-    #print "second particle state", particles.parts[1].state
-    #print "third particle state", particles.parts[2].state
-    #print "fourth particle state", particles.parts[3].state
-    #print "fifth particle state", particles.parts[4].state
-    #print "sixth particle state", particles.parts[5].state
-    #print "seventh particle state", particles.parts[6].state
-
 
     weight_sum =0
     for part in particles.parts:
         weight_sum += part.weight
-    #print "the sum of the particles' weights is ", weight_sum
+
     # because particles in sv model are simulated data free, need to normalize their weights:
     if model=="sv":
         particles.normalize_particle_weights()
 
-    #print "first particle's state and weight after update", particles.parts[0].state, particles.parts[0].weight
-    #print "ESS: ", particles.ESS
-
-    if non_homogeneous_hmm:
-        if model=="coin":
-            return_ff = []
-            return_uf = []
-            return_ft = []
-            return_ut = []
-        elif model=="AR1":
-            return_a = []
-            return_sigw = []
-            return_sigv = []
 
     for i in range(2,nSim+1):
 
@@ -1612,18 +1591,16 @@ def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=1, batch_s
 
         if i >= (lag + 1):                              # events have been recorded
             if em_method == "ioem":
-                par.update_ests_ioem(model, i, lag, min_mem, sweep_indx, ioem_alpha, ioem_gam)
+                par.update_ests_ioem(model, i, lag, min_mem, sweep_indx, ioem_gam)
             elif em_method == "online":
                 if i >= (lag + 1 + min_mem):            # theta bar has had time to stabilize and can be used for simulations
                     par.update_ests_oem(model)
             elif em_method == "batch":
                 if (i - lag) % batch_size == 0:         # we have reached the end of the batch; NEEDS adjustment for multiple sweeps
                     par.update_ests_bem(model)
-                    #print par.ff.estimate, par.uf.estimate, par.ft.estimate, par.ut.estimate
                     event_counts = counts(model, em_method, initial_params)
 
         ### resample particles ###
-        # should move to the very beginning of algorithm as sv model could have small ESS to start
 
         if particles.ESS < N/2.0:
             particles.resample_particles()
@@ -1666,57 +1643,32 @@ def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=1, batch_s
         #if(i==1000):
             #par1k = copy.deepcopy(par)
 
-        if non_homogeneous_hmm and i%100==0:
-            if model=="coin":
-                return_ff.append(par.ff.estimate)
-                return_uf.append(par.uf.estimate)
-                return_ft.append(par.ft.estimate)
-                return_ut.append(par.ut.estimate)
-            elif model=="AR1":
-                return_a.append(par.a.estimate)
-                return_sigw.append(par.sigw.estimate)
-                return_sigv.append(par.sigv.estimate)
-
-    # Remove print statements when not debugging!
-        #print "parameters [a1, sigw1, sigv1, a2, sigw2, sigv2]"
-        #print "estimates", [par.a1.estimate, par.sigw1.estimate, par.sigv1.estimate, par.a2.estimate, par.sigw2.estimate, par.sigv2.estimate]
-        #print "memlen", [par.a1.memlen, par.sigw1.memlen, par.sigv1.memlen, par.a2.memlen, par.sigw2.memlen, par.sigv2.memlen]
-        #print "eta", [par.a1.eta, par.sigw1.eta, par.sigv1.eta, par.a2.eta, par.sigw2.eta, par.sigv2.eta]
-    #print "end a est", par.a.estimate
-    #print "end sigw est", par.sigw.estimate
-    #print "end sigv est", par.sigv.estimate
 
     ## for comparing multiple runs:
-    #if non_homogeneous_hmm:
-        #if model=="coin":
-            #return_pars = [return_ff, return_uf, return_ft, return_ut]
-        #elif model=="AR1":
-            #return_pars = [return_a, return_sigw, return_sigv]
-    #else:
-        #if(nSim>=500000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k,par400k,par500k]
-        #elif(nSim>=400000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k,par400k]
-        #elif(nSim>=300000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k]
-        #elif(nSim>=200000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k]
-        #elif(nSim>=150000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k]
-        #elif(nSim==100001):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par60k,par70k,par80k,par90k,par100k]
-        #elif(nSim>=100000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k]
-        #elif(nSim>=50000):
-            #return_pars = [par1k,par5k,par10k,par20k,par50k]
-        #elif(nSim>=20000):
-            #return_pars = [par1k,par5k,par10k,par20k]
-        #elif(nSim>=10000):
-            #return_pars = [par1k,par5k,par10k]
-        #elif(nSim>=5000):
-            #return_pars = [par1k,par5k]
-        #elif(nSim>=1000):
-            #return_pars = [par1k]
+    #if(nSim>=500000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k,par400k,par500k]
+    #elif(nSim>=400000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k,par400k]
+    #elif(nSim>=300000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k]
+    #elif(nSim>=200000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k]
+    #elif(nSim>=150000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k]
+    #elif(nSim==100001):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par60k,par70k,par80k,par90k,par100k]
+    #elif(nSim>=100000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k]
+    #elif(nSim>=50000):
+        #return_pars = [par1k,par5k,par10k,par20k,par50k]
+    #elif(nSim>=20000):
+        #return_pars = [par1k,par5k,par10k,par20k]
+    #elif(nSim>=10000):
+        #return_pars = [par1k,par5k,par10k]
+    #elif(nSim>=5000):
+        #return_pars = [par1k,par5k]
+    #elif(nSim>=1000):
+        #return_pars = [par1k]
 
     # Sums are returned with return_pars (par1k.ff.Sums)
 
@@ -1816,23 +1768,3 @@ def matrixProduct( mat1, mat2 ):
     return [ [ mat1[0][0]*mat2[0][0] + mat1[0][1]*mat2[1][0],  mat1[0][0]*mat2[0][1] + mat1[0][1]*mat2[1][1] ],
              [ mat1[1][0]*mat2[0][0] + mat1[1][1]*mat2[1][0],  mat1[1][0]*mat2[0][1] + mat1[1][1]*mat2[1][1] ] ]
 
-###### test code #######
-#Start1 = StartingProb("coin", 0.3)
-#true_params = set_params("coin", [.99,.03,.5,.1])
-#input_params = set_params("coin", [.8,.2,.5,.3])
-#hmm = HMM(50101, "coin", Start1, true_params)
-
-#Start1_ar = StartingProb("AR1", [100,4])
-#true_params_ar = set_params("AR1", [.95,3,4])
-#input_params_ar = set_params("AR1", [.8,3,4])
-#hmm_ar = HMM(10101, "AR1", Start1_ar, true_params_ar)
-
-#N=50
-
-#pf(model = "coin", obs = hmm.emission, N = N, initial_params = input_params, \
- #em_method = "ioem", lag=101, batch_size=500, \
- #oem_exponent=.7, ioem_alpha=.5, ioem_gam=2, sweep_indx=1)
-
-##pf(model = "AR1", obs = hmm_ar.emission, N = N, initial_params = input_params_ar, \
- ##em_method = "ioem", lag=21, batch_size=500, \
- ##oem_exponent=.7, ioem_alpha=.5, ioem_gam=2, sweep_indx=1)

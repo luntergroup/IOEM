@@ -11,7 +11,7 @@ import shelve
 
 class method:
     
-    def __init__(self, em, batch_size=500, oem_exp=.75, ioem_alpha=.5, ioem_gam=1):
+    def __init__(self, em, batch_size=500, oem_exp=.75, ioem_gam=1):
         self.em = em
         self.oem_exp = oem_exp
         self.batch_size = batch_size
@@ -61,7 +61,7 @@ for m in methods:
 	
         record = smc.pf("AR1", obs = hmm.emission, N = N, initial_params = input_params, \
         sAR_true_params = true_params, em_method = m.em, lag=21, batch_size=m.batch_size, \
-                        oem_exponent=m.oem_exp, ioem_alpha=m.ioem_alpha, ioem_gam=m.ioem_gam, sweep_indx=1)
+                        oem_exponent=m.oem_exp, ioem_gam=m.ioem_gam, sweep_indx=1)
 	
         m.a_est = record.a_est
         m.sigw_est = record.sigw_est
