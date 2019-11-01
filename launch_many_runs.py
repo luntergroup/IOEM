@@ -4,7 +4,7 @@ import random
 import math
 import itertools
 import sys
-import smc_src_many_runs as smc
+import smc_src as smc
 from operator import add, mul, sub, div
 import pylab as plt
 import shelve
@@ -72,7 +72,7 @@ for m in methods:
         
         end_pars = smc.pf("AR1", obs = hmm.emission, N = N, initial_params = input_params, \
             sAR_true_params = None, em_method = m.em, lag=21, batch_size=m.batch_size, \
-            oem_exponent=m.oem_exp, ioem_gam=m.ioem_gam, sweep_indx=1)
+            oem_exponent=m.oem_exp, ioem_gam=m.ioem_gam, sweep_indx=1, single_run = False)
         
         m.a1k_estimates.append(end_pars[0].a.estimate)
         m.sigw1k_estimates.append(end_pars[0].sigw.estimate)

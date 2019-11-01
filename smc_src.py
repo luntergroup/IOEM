@@ -369,7 +369,7 @@ class param:
             self.old_bar = in_param
             self.Sums = Sums()
             self.eta = .5                  # will this cause problems in weighted_regression?
-            self.memlen = 500
+            self.memlen = 1 / self.eta
 
 
     # x and y in regression completely different from x and y in particle filters
@@ -459,10 +459,15 @@ class param:
         # Set new weight.  For testing, use uniform weights (1.0 / iteration)
         # Make sure that memory doesn't exceed previous memory
         if full_swing:
-            self.eta = min( index**-0.5 , max(1.0 / self.memlen, index**-1))
+            #self.eta = min( index**-0.5 , max(1.0 / self.memlen, index**-1))
+            self.eta = min( index**-0.5 , max(1.0 / self.memlen, self.eta / (1.0 + self.eta) ) )
         else:
             # wait for min_mem worth of sufficient statistics before relying on regression
             self.eta = self.eta / (1.0 + self.eta)
+
+        # store eta as memlen - this is recorded for plotting, though not used
+        self.memlen = 1.0 / self.eta
+            
 
 
     def update_est_ioem(self, i, forth, min_mem, sweep_indx, ioem_gam):
@@ -1528,7 +1533,7 @@ class records:
 
 
 def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=21, batch_size=500, oem_exponent=.75, \
-       ioem_gam = 1, sweep_indx = 1, min_mem = 500):
+       ioem_gam = 1, sweep_indx = 1, min_mem = 500, single_run = True):
 #high level function: performs particle filtering
 
     ### initialize everything ###
@@ -1549,7 +1554,11 @@ def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=21, batch_
         particles.normalize_particle_weights()
 
 
+    return_pars = []
     for i in range(2,nSim+1):
+
+        #print "i={} obs={} a={} mem={} sigw={} mem={} sigv={} mem={}".format(
+        #   i,obs[i-1],par.a.estimate,par.a.memlen,par.sigw.estimate,par.sigw.memlen,par.sigv.estimate,par.sigv.memlen)
 
         if em_method == "online":
             if (i-lag)+(sweep_indx-1)*(nSim-lag-1) > 0:
@@ -1609,73 +1618,18 @@ def pf(model, obs, N, initial_params, sAR_true_params, em_method, lag=21, batch_
         ### record for plots ###
 
         ## full record of parameter ests for analyzing specific runs:
-        record.add_on(model, em_method, par)
-
-        ### record parameters at certain iterations for analyzing lots of runs:
-        #if(i==500000):
-            #par500k = copy.deepcopy(par)
-        #if(i==400000):
-            #par400k = copy.deepcopy(par)
-        #if(i==300000):
-            #par300k = copy.deepcopy(par)
-        #if(i==200000):
-            #par200k = copy.deepcopy(par)
-        #if(i==150000):
-            #par150k = copy.deepcopy(par)
-        #if(i==100000):
-            #par100k = copy.deepcopy(par)
-        #if(i==90000):
-            #par90k = copy.deepcopy(par)
-        #if(i==80000):
-            #par80k = copy.deepcopy(par)
-        #if(i==70000):
-            #par70k = copy.deepcopy(par)
-        #if(i==60000):
-            #par60k = copy.deepcopy(par)
-        #if(i==50000):
-            #par50k = copy.deepcopy(par)
-        #if(i==20000):
-            #par20k = copy.deepcopy(par)
-        #if(i==10000):
-            #par10k = copy.deepcopy(par)
-        #if(i==5000):
-            #par5k = copy.deepcopy(par)
-        #if(i==1000):
-            #par1k = copy.deepcopy(par)
-
-
-    ## for comparing multiple runs:
-    #if(nSim>=500000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k,par400k,par500k]
-    #elif(nSim>=400000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k,par400k]
-    #elif(nSim>=300000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k,par300k]
-    #elif(nSim>=200000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k,par200k]
-    #elif(nSim>=150000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k,par150k]
-    #elif(nSim==100001):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par60k,par70k,par80k,par90k,par100k]
-    #elif(nSim>=100000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k,par100k]
-    #elif(nSim>=50000):
-        #return_pars = [par1k,par5k,par10k,par20k,par50k]
-    #elif(nSim>=20000):
-        #return_pars = [par1k,par5k,par10k,par20k]
-    #elif(nSim>=10000):
-        #return_pars = [par1k,par5k,par10k]
-    #elif(nSim>=5000):
-        #return_pars = [par1k,par5k]
-    #elif(nSim>=1000):
-        #return_pars = [par1k]
+        if single_run:
+            record.add_on(model, em_method, par)
+        else:
+            ### record parameters at certain iterations for analyzing lots of runs:
+            if i in [500000, 400000, 300000, 200000, 150000, 100000, 90000, 80000, 70000, 60000, 50000, 20000, 10000, 5000, 1000]:
+                return_pars.append( copy.deepcopy(par) )
 
     # Sums are returned with return_pars (par1k.ff.Sums)
-
-    ## return for comparing multiple runs:
-    #return return_pars
-    # return for analysing one detailed run:
-    return record
+    if single_run:
+        return record
+    else:
+        return record_pars
 
 
 class StartingProb:

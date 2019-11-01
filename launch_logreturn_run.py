@@ -11,7 +11,7 @@ import shelve
 
 class method:
     
-    def __init__(self, em, batch_size=500, oem_exp=.75, ioem_gam=1, ioem_alpha = None):
+    def __init__(self, em, batch_size=500, oem_exp=.75, ioem_gam=1, ioem_alpha = None, min_mem = 500):
         self.em = em
         self.oem_exp = oem_exp
         self.batch_size = batch_size
@@ -21,6 +21,7 @@ class method:
         self.sigw_est = []
         self.sigv_est = []
         self.dis = []
+        self.min_mem = min_mem
         if self.em=="ioem":
             self.a_eta = []
             self.sigw_eta = []
@@ -41,31 +42,34 @@ class method:
 
 if __name__ == "__main__":
 
-    N = 100
+    N = 5000
 
-    m1 = method("batch")
-    m2 = method("batch", batch_size = 1000)
-    m3 = method("online", oem_exp =.6)
-    m4 = method("online", oem_exp = .9)
-    m5 = method("ioem", ioem_gam = 1)   ## scaling of lookback
+    ## read observations from a column of the datafile
+    infile = open( sys.argv[1], "r")    ## argument: gbpusd-logreturns.txt
+    infile.readline()
+    incol = 1 + int(sys.argv[2])        ## argument: 0-23, refers to hour column
+    obs = [ float(line.split('\t')[ incol ]) for line in infile ]
 
-    methods = [m1,m2,m3,m4,m5]
+    gammas = [ 0.5, 1, 1.5, 2, 3 ]
+    methods = [ method("ioem", ioem_gam = g, min_mem = 100) for g in gammas ]    ## scaling of lookback.
+    methodnames = [ 'ioem{}'.format(g) for g in gammas ]
 
-    Start1 = smc.StartingProb("AR1", [0,5])
-    true_params = smc.set_params("AR1", [.95,1,5.5])
-    input_params = smc.set_params("AR1", [.95,3,1])
-
+    Start1 = smc.StartingProb("AR1", [0,0.005])      ## not used
+    true_params = smc.set_params("AR1", [.95,1,5.5]) ## not used
+    input_params = smc.set_params("AR1", [0.05, 0.005, 0.005])
 
     for m in methods:
         print m.em
         for run in [1]:
             random.seed(run)
-            hmm = smc.HMM(200000, "AR1", Start1, true_params)
-	
-            record = smc.pf("AR1", obs = hmm.emission, N = N, initial_params = input_params, \
+
+            #hmm = smc.HMM(200000, "AR1", Start1, true_params)
+            #obs = hmm.emission
+
+            record = smc.pf("AR1", obs = obs, N = N, initial_params = input_params, \
                                 sAR_true_params = true_params, em_method = m.em, lag=21, batch_size=m.batch_size, \
-                                oem_exponent=m.oem_exp, ioem_gam=m.ioem_gam, sweep_indx=1)
-	
+                                oem_exponent=m.oem_exp, ioem_gam=m.ioem_gam, sweep_indx=1, min_mem = m.min_mem)
+
             m.a_est = record.a_est
             m.sigw_est = record.sigw_est
             m.sigv_est = record.sigv_est
@@ -83,10 +87,7 @@ if __name__ == "__main__":
                                  abs(record.sigv_est[i]-true_params.sigv))
 
     
-    s = shelve.open("AR_single_run_shelf",writeback=True)
-    s['bem500'] = m1
-    s['bem1k'] = m2
-    s['oem6'] = m3
-    s['oem9'] = m4
-    s['gam3'] = m5
+    s = shelve.open("AR_single_run_shelf_col{}".format(sys.argv[2]),writeback=True)
+    for name, method in zip(methodnames, methods):
+        s[ name ] = method
     s.close()
